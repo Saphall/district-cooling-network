@@ -37,10 +37,10 @@ Physics and assumptions are in [docs/five_fsed_spec.md](docs/five_fsed_spec.md).
 ```bash
 scripts/setup_server.sh /data/dcn_workspace     # uv sync, build patched dcngen, download inputs, doctor
 export SWIM_WORKSPACE=/data/dcn_workspace
-uv run --all-extras dcn validate                # 1. check the five FSED mechanisms
-uv run --all-extras dcn generate pilot_v1 --workers 16   # 2. resumable generation
-uv run --all-extras dcn consolidate pilot_v1             # 3. merge pairs into one parquet
-uv run --all-extras python rq1_experiments/baseline_mlp.py --dataset pilot_v1   # 4. baseline
+uv run dcn validate                # 1. check the five FSED mechanisms
+uv run dcn generate pilot_v1 --workers 16   # 2. resumable generation
+uv run dcn consolidate pilot_v1             # 3. merge pairs into one parquet
+uv run python rq1_experiments/baseline_mlp.py --dataset pilot_v1   # 4. baseline
 ```
 
 Colab: run `notebooks/00_setup.ipynb`, then `01_validation`, `02_dataset_generation`, `03_ml_experiments`.
@@ -55,11 +55,53 @@ Each notebook mounts Drive and sets the workspace itself.
 | 4 | Analyse | `results/validation/`, `results/ml/`, `datasets/<id>/consolidated/` |
 | 5 | Scale up | raise `n_seeds`, append levels or `targets` in `configs/datasets/*.yaml`, repeat step 2 (only new pairs run) |
 
+## Run RQ1 step by step
+
+Needs Python >= 3.12, [uv](https://docs.astral.sh/uv/), git, and about 2.1 GB of disk for the inputs.
+Every step can be repeated safely; finished work is skipped.
+
+1. **Install.** In the project folder: `uv sync`.
+2. **Pick a workspace** (where data and results go):
+   `export SWIM_WORKSPACE=/path/to/workspace` (on Colab the notebooks set it to Drive for you).
+3. **Build the simulator.** `uv run dcn setup-dcngen` clones dcngen at the pinned commit and builds the
+   patched copy. To reuse your existing clone, `export SWIM_DCNGEN_DIR=<path to dcngen>` first (it is only read).
+4. **Download the inputs.** `uv run dcn download-data` fetches the 8 missing Hanoi files (~2.1 GB).
+5. **Check the setup.** `uv run dcn doctor` should print `[ok]` on every line.
+6. **(Optional) protect existing outputs.**
+   `uv run dcn manifest import-legacy --root <old output dir> --label scenarios105`
+7. **Validate the fault mechanisms.** `uv run dcn validate`. Each experiment must show `passed`;
+   details are in `reports/validation/` and the tables and figures in `results/validation/`.
+8. **Generate the pilot dataset.**
+   ```bash
+   uv run dcn manifest status pilot_v1        # what is pending
+   uv run dcn generate pilot_v1 --workers 8   # re-run after any interruption or failure
+   uv run dcn consolidate pilot_v1            # -> datasets/pilot_v1/consolidated/dataset.parquet
+   ```
+9. **Run the topology-agnostic baseline.**
+   `uv run python rq1_experiments/baseline_mlp.py --dataset pilot_v1`
+   writes `results/ml/rq1_baseline_mlp/<hash>/metrics.json` (fault type given fault, and normal vs fault),
+   using a scenario-level split. Add `--split seed` for the stricter split; a finished run is skipped unless `--force`.
+10. **Generate the network-wide dataset for topology-aware models.**
+    ```bash
+    uv run dcn generate rq1_network_v1 --workers 8
+    uv run dcn consolidate rq1_network_v1      # -> consolidated/consumers.parquet and pipes.parquet
+    ```
+    These hold every consumer and pipe per timestep (the consumers table already has a `fault_active` label).
+    The graph itself is the `adj_list` stored in the footer of `pipe_diameter-0-static_input.parquet`
+    (`scripts/make_figures.py` shows how to read it).
+11. **Add the topology-aware / physics-constrained model** as a new script in `rq1_experiments/`. Reuse
+    `split_by_group`, the same `--split` and `--seed` as step 9, and `start_run`, so both models are scored on
+    identical held-out scenarios. This model is not implemented yet.
+12. **Compare and scale up.** Compare the `metrics.json` files. To get more data, raise `n_seeds`, append levels, or
+    list consumer ids under `targets:` in the dataset spec, then repeat step 8 or 10; only new pairs run.
+
 ## Folder structure
 
 ```
 district-cooling-network/
-├── README.md, pyproject.toml, uv.lock
+├── README.md
+├──pyproject.toml
+├──uv.lock
 ├── configs/                  dcngen.lock.yaml (pinned commit + patch hash), dcngen_default.yaml,
 │                             inputs.yaml, datasets/<name>.yaml
 ├── src/district_cooling_network/
@@ -97,15 +139,16 @@ Generated content goes to the **workspace** (`SWIM_WORKSPACE`; default: this fol
 
 ## Dependencies
 
-Python >= 3.12 (dcngen requires it). Core: numpy, scipy, pandas, pyarrow, networkx, pyyaml, wntr, tabulate.
-Extras: `data` (huggingface_hub), `plots` (matplotlib), `ml` (scikit-learn), `dev` (pytest, ruff). No conda;
-torch / torch_geometric are not needed for simulation (install CPU torch yourself for GNNs).
+Python >= 3.12 (dcngen requires it). `uv sync` installs everything: numpy, scipy, pandas, pyarrow, networkx,
+pyyaml, wntr, tabulate, huggingface_hub (download), matplotlib (figures), scikit-learn (ML), and pytest and
+ruff (dev group). No conda; torch / torch_geometric are not needed for simulation (install CPU torch yourself
+for GNNs).
 
 ```bash
-uv sync --all-extras
+uv sync
 ```
 
-Use `uv run --all-extras ...` (or `.venv/bin/python`) so `uv run` does not drop the extras.
+Then run commands with `uv run ...` (or activate `.venv`).
 
 ## Commands
 
@@ -155,8 +198,8 @@ scenarios (`pair_id`) or whole seeds. `start_run` gives each config its own resu
 ## Figures and tests
 
 ```bash
-uv run --all-extras python scripts/make_figures.py --data <data>/ditec-wdn/hanoi_8GB_1Y   # redraw docs/images
-uv run --all-extras pytest && uv run --all-extras ruff check src tests rq1_experiments
+uv run python scripts/make_figures.py --data <data>/ditec-wdn/hanoi_8GB_1Y   # redraw docs/images
+uv run pytest && uv run ruff check src tests rq1_experiments
 ```
 
 The network plot reads only the small static DiTEC files; node positions are a graph layout, not coordinates.

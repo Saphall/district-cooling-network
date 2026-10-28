@@ -3,7 +3,7 @@
 Reads ``datasets/<id>/consolidated/dataset.parquet`` (``export: target_table``) and writes
 ``results/ml/rq1_baseline_mlp/<config-hash>/``. Finished runs are skipped unless ``--force``.
 
-    uv run --extra ml python rq1_experiments/baseline_mlp.py --dataset pilot_v1
+    uv run python rq1_experiments/baseline_mlp.py --dataset pilot_v1
 """
 
 from __future__ import annotations

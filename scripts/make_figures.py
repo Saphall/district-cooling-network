@@ -1,7 +1,7 @@
 """Regenerate the figures in docs/images/.
 
-    uv run --all-extras python scripts/make_figures.py                  # schematics
-    uv run --all-extras python scripts/make_figures.py --data <ditec-wdn dir>   # + network topology
+    uv run python scripts/make_figures.py                  # schematics
+    uv run python scripts/make_figures.py --data <ditec-wdn dir>   # + network topology
 
 The topology plot reads only the small static DiTEC-WDN files (pipe_diameter, junction_elevation,
 reservoir_base_head); node positions are a graph layout, not geographic coordinates.

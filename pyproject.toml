@@ -17,16 +17,13 @@ dependencies = [
     "pyyaml",
     "wntr",
     "tabulate",  # DataFrame.to_markdown in the validation summary
+    "huggingface_hub",  # dcn download-data
+    "matplotlib",  # validation figures
+    "scikit-learn",  # ML experiments (CPU torch for GNNs is installed separately)
 ]
 
-[project.optional-dependencies]
-# Download of the DiTEC-WDN input parquet files.
-data = ["huggingface_hub"]
-# Validation figures.
-plots = ["matplotlib"]
-# ML experiments (CPU torch is installed separately, see README).
-ml = ["scikit-learn"]
-dev = ["pytest", "ruff"]
+[dependency-groups]
+dev = ["pytest", "ruff"]  # installed by default with `uv sync`
 
 [project.scripts]
 dcn = "district_cooling_network.cli:main"

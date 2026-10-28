@@ -144,48 +144,45 @@ name = "district-cooling-network"
 version = "0.1.0"
 source = { editable = "." }
 dependencies = [
+    { name = "huggingface-hub" },
+    { name = "matplotlib" },
     { name = "networkx" },
     { name = "numpy" },
     { name = "pandas" },
     { name = "pyarrow" },
     { name = "pyyaml" },
+    { name = "scikit-learn" },
     { name = "scipy" },
     { name = "tabulate" },
     { name = "wntr" },
 ]
 
-[package.optional-dependencies]
-data = [
-    { name = "huggingface-hub" },
-]
+[package.dev-dependencies]
 dev = [
     { name = "pytest" },
     { name = "ruff" },
 ]
-ml = [
-    { name = "scikit-learn" },
-]
-plots = [
-    { name = "matplotlib" },
-]
 
 [package.metadata]
 requires-dist = [
-    { name = "huggingface-hub", marker = "extra == 'data'" },
-    { name = "matplotlib", marker = "extra == 'plots'" },
+    { name = "huggingface-hub" },
+    { name = "matplotlib" },
     { name = "networkx" },
     { name = "numpy" },
     { name = "pandas" },
     { name = "pyarrow" },
-    { name = "pytest", marker = "extra == 'dev'" },
     { name = "pyyaml" },
-    { name = "ruff", marker = "extra == 'dev'" },
-    { name = "scikit-learn", marker = "extra == 'ml'" },
+    { name = "scikit-learn" },
     { name = "scipy" },
     { name = "tabulate" },
     { name = "wntr" },
 ]
-provides-extras = ["data", "plots", "ml", "dev"]
+
+[package.metadata.requires-dev]
+dev = [
+    { name = "pytest" },
+    { name = "ruff" },
+]
 
 [[package]]
 name = "filelock"
