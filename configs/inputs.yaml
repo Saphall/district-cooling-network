@@ -1,0 +1,15 @@
+# Raw simulation inputs (read-only). Downloaded by `dcn download-data` into
+# <workspace>/data/ditec-wdn/<network>/ (override with SWIM_DATA_DIR).
+ditec_wdn:
+  repo_id: hulaba/ditec-wdn
+  repo_type: dataset
+  network: hanoi_8GB_1Y
+  files:
+    - junction_base_demand-0-dynamic_input.parquet
+    - junction_base_demand-1-dynamic_input.parquet
+    - junction_base_demand-2-dynamic_input.parquet
+    - junction_elevation-0-static_input.parquet
+    - pipe_diameter-0-static_input.parquet
+    - pipe_length-0-static_input.parquet
+    - pipe_roughness-0-static_input.parquet
+    - reservoir_base_head-0-static_input.parquet

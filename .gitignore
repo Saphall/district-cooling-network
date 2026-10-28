@@ -1,0 +1,32 @@
+# Python
+__pycache__/
+*.py[oc]
+build/
+dist/
+wheels/
+*.egg-info/
+
+# Environments
+.venv/
+.env
+
+# Tool caches
+.ruff_cache/
+.pytest_cache/
+.mypy_cache/
+.ipynb_checkpoints/
+
+# Editors / OS
+.vscode/
+.idea/
+.DS_Store
+
+# Workspace content: code and configs are tracked, bulky or generated data is not.
+# (On Colab the workspace is on Google Drive, outside this checkout.)
+/data/*
+!/data/.gitkeep
+/external/
+/datasets/
+/results/
+/configs/resolved/
+*.log

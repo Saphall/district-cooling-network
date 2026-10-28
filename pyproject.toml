@@ -1,0 +1,54 @@
+[project]
+name = "district-cooling-network"
+version = "0.1.0"
+description = "District cooling network: dcngen-based fault simulation, validation, dataset generation and ML experiments"
+readme = "README.md"
+authors = [
+    { name = "Saphall", email = "safalsakha@gmail.com" }
+]
+# dcngen itself requires >= 3.12.
+requires-python = ">=3.12"
+dependencies = [
+    "numpy",
+    "scipy",
+    "pandas",
+    "pyarrow",
+    "networkx",
+    "pyyaml",
+    "wntr",
+    "tabulate",  # DataFrame.to_markdown in the validation summary
+]
+
+[project.optional-dependencies]
+# Download of the DiTEC-WDN input parquet files.
+data = ["huggingface_hub"]
+# Validation figures.
+plots = ["matplotlib"]
+# ML experiments (CPU torch is installed separately, see README).
+ml = ["scikit-learn"]
+dev = ["pytest", "ruff"]
+
+[project.scripts]
+dcn = "district_cooling_network.cli:main"
+
+[build-system]
+requires = ["uv_build>=0.13.0,<0.14.0"]
+build-backend = "uv_build"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+# Validation scripts and the network exporter are carried over verbatim from the validated notebook/cloud code.
+extend-exclude = ["src/district_cooling_network/validation/exp*.py", "src/district_cooling_network/validation/summary.py", "src/district_cooling_network/validation/figures.py", "src/district_cooling_network/pipeline/network_export.py", "archive"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP"]
+ignore = ["E501"]
+
+[tool.ruff.lint.per-file-ignores]
+# bootstrap must be imported before dcngen, so import sorting is disabled here.
+"src/district_cooling_network/pipeline/*.py" = ["I001"]

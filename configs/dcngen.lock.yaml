@@ -1,0 +1,7 @@
+# Pinned upstream dcngen. The upstream clone is never modified; the project
+# builds a derived copy (external/dcngen_swim) = pristine commit + patches/dcngen/*.patch.
+repo: https://github.com/asgersong/dcngen.git
+commit: 2641335e6a95047097e5e8b644316f7e3503a4a9
+patches:
+  - file: 0001-swim-fsed-extensions.patch
+    sha256: a2a4535e352b512c7733607ca6a0ba9c8d83fbcb568e621600e97cd34c8637fb

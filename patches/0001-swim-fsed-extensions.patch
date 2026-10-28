@@ -1,0 +1,410 @@
+diff --git a/src/dcngen/faults/injector.py b/src/dcngen/faults/injector.py
+index 9fd5200..ca70bc7 100644
+--- a/src/dcngen/faults/injector.py
++++ b/src/dcngen/faults/injector.py
+@@ -65,6 +65,23 @@ class BypassInjection:
+     whole_horizon: bool  # temporal variant (False = abrupt onset)
+ 
+ 
++
++@dataclass(frozen=True)
++class StuckValveInjection:
++    """Abrupt ETS valve fault: actuator freezes at its setting at onset.
++
++    The healthy ETS controller continues computing the desired primary flow,
++    while the affected FCV setting is held at the value captured when the
++    fault becomes active.
++
++    The realized stuck flow is determined dynamically by the scenario
++    runner; it is not prescribed here as an arbitrary percentage.
++    """
++
++    label: FaultLabel
++    consumer: str  # original DiTEC junction id hosting the affected ETS
++
++
+ def _horizon(times: np.ndarray) -> float:
+     """Scenario horizon [s]: the end of the last step of a uniform grid."""
+     return float(times[-1]) + float(times[1] - times[0])
+@@ -266,3 +283,154 @@ def inject_bypass(
+     return BypassInjection(
+         label=label, consumer=consumer, fraction=fraction, whole_horizon=whole_horizon
+     )
++
++def inject_stuck_valve(
++    dcn: DCNetwork,
++    cfg: Config,
++    times: np.ndarray,
++    rng: np.random.Generator | None,
++    consumer: str,
++    onset: float | None = None,
++) -> StuckValveInjection:
++    """Inject an abrupt stuck ETS flow-control actuator.
++
++    At fault onset, the scenario runner freezes the affected consumer's
++    applied FCV setting at its last pre-fault value.  The healthy ETS
++    controller continues to calculate its desired flow, allowing the
++    command-actuation mismatch to be observed.
++
++    Notes
++    -----
++    severity=1.0 is an activation marker for this categorical fault.
++    It does NOT mean 100% flow loss or 100% valve closure.
++    """
++    if consumer not in dcn.consumers:
++        raise KeyError(f"Unknown consumer: {consumer!r}")
++
++    times = np.asarray(times, dtype=float)
++    onset = _abrupt_onset_time(times, cfg, rng, onset)
++
++    label = FaultLabel.from_profile(
++        kind=FaultKind.ETS_VALVE,
++        location=consumer,
++        element="node",
++        side=None,
++        severity=1.0,
++        profile=OnsetProfile.abrupt(
++            onset=onset,
++            offset=_horizon(times),
++        ),
++        times=times,
++    )
++
++    return StuckValveInjection(
++        label=label,
++        consumer=consumer,
++    )
++
++
++
++@dataclass(frozen=True)
++class ExcessControlMarginInjection:
++    """Plant-head fault: multiply the healthy design pump head."""
++
++    label: FaultLabel
++    head_multiplier: float
++
++
++def inject_excess_control_margin(
++    dcn,
++    cfg,
++    times: np.ndarray,
++    head_multiplier: float,
++) -> ExcessControlMarginInjection:
++    """Create a scenario-wide excessive plant-head intervention.
++
++    ``head_multiplier`` is a simulation sensitivity parameter.
++    For example, 1.20 means 20 % above the healthy design head.
++    It is not asserted to be a universal diagnostic threshold.
++    """
++    times = np.asarray(times, dtype=float)
++
++    if head_multiplier <= 1.0:
++        raise ValueError("head_multiplier must be > 1.0")
++
++    mask = np.ones(times.shape, dtype=bool)
++
++    label = FaultLabel(
++        kind=FaultKind.PLANT_SETPOINT,
++        location="plant",
++        element="node",
++        side=None,
++        severity=float(head_multiplier),
++        onset=float(times[0]),
++        offset=None,
++        mask=mask,
++    )
++
++    return ExcessControlMarginInjection(
++        label=label,
++        head_multiplier=float(head_multiplier),
++    )
++
++
++@dataclass(frozen=True)
++class PoorBalancingInjection:
++    """ETS balancing fault: applied flow tracks a biased controller target."""
++
++    label: FaultLabel
++    consumer: str
++    flow_multiplier: float
++
++
++def inject_poor_balancing(
++    dcn,
++    cfg,
++    times: np.ndarray,
++    consumer: str,
++    flow_multiplier: float,
++) -> PoorBalancingInjection:
++    """Create an under/over-supplied ETS balancing intervention.
++
++    ``flow_multiplier`` scales the healthy controller-requested flow.
++    A value below 1.0 represents under-supply and a value above 1.0
++    represents over-supply.
++
++    The multiplier is a simulation sensitivity parameter, not a
++    universal diagnostic threshold for poor balancing.
++    """
++
++    times = np.asarray(times, dtype=float)
++
++    if consumer not in dcn.consumers:
++        raise ValueError(f"Unknown consumer: {consumer}")
++
++    if times.ndim != 1 or len(times) == 0:
++        raise ValueError("times must be a non-empty 1-D array")
++
++    if flow_multiplier <= 0.0:
++        raise ValueError("flow_multiplier must be > 0")
++
++    if np.isclose(flow_multiplier, 1.0):
++        raise ValueError(
++            "flow_multiplier=1.0 represents healthy operation"
++        )
++
++    mask = np.ones(times.shape, dtype=bool)
++
++    label = FaultLabel(
++        kind=FaultKind.ETS_VALVE,
++        location=consumer,
++        element="node",
++        side=None,
++        severity=float(flow_multiplier),
++        onset=float(times[0]),
++        offset=None,
++        mask=mask,
++    )
++
++    return PoorBalancingInjection(
++        label=label,
++        consumer=consumer,
++        flow_multiplier=float(flow_multiplier),
++    )
+diff --git a/src/dcngen/orchestrate/scenario.py b/src/dcngen/orchestrate/scenario.py
+index f9b7eb9..df84149 100644
+--- a/src/dcngen/orchestrate/scenario.py
++++ b/src/dcngen/orchestrate/scenario.py
+@@ -17,7 +17,12 @@ import numpy as np
+ import pandas as pd
+ 
+ from dcngen.config import Config
+-from dcngen.faults.injector import BypassInjection, LeakInjection
++from dcngen.faults.injector import (
++    BypassInjection,
++    LeakInjection,
++    PoorBalancingInjection,
++    StuckValveInjection,
++)
+ from dcngen.hydraulics.wntr_model import HydraulicState, solve_steady
+ from dcngen.thermal.ets import (
+     building_hot_inlet_temp,
+@@ -79,7 +84,8 @@ class EpsNtuScenarioResult:
+     supply_temp: pd.DataFrame
+     return_temp: pd.DataFrame
+     ets_return: pd.DataFrame
+-    consumer_flow: pd.DataFrame  # volumetric, per step (time-varying)
++    consumer_flow: pd.DataFrame  # applied FCV setting [m3/s]
++    desired_flow: pd.DataFrame  # controller-requested flow [m3/s]
+     delivered_load: pd.DataFrame  # [W] at the realized flow
+     unmet: pd.DataFrame  # bool per consumer per step
+     pressure_s: pd.DataFrame  # [m] supply-side node pressure, per junction
+@@ -321,6 +327,8 @@ def run_eps_ntu_scenario(
+     max_iterations: int | None = None,
+     leak: LeakInjection | None = None,
+     bypass: BypassInjection | None = None,
++    stuck_valve: StuckValveInjection | None = None,
++    poor_balancing: PoorBalancingInjection | None = None,
+     pipe_U: Mapping[str, float] | None = None,
+ ) -> EpsNtuScenarioResult:
+     """Run an eps-NTU scenario; loads may vary in time.
+@@ -373,6 +381,23 @@ def run_eps_ntu_scenario(
+                 f"bypass consumer {bypass.consumer!r} is not among the loaded "
+                 f"consumers"
+             )
++    if stuck_valve is not None:
++        if stuck_valve.label.mask.shape != (n_steps,):
++            raise ValueError(
++                f"stuck-valve mask has shape {stuck_valve.label.mask.shape}, "
++                f"expected ({n_steps},)"
++            )
++        if stuck_valve.consumer not in loads:
++            raise ValueError(
++                f"stuck-valve consumer {stuck_valve.consumer!r} is not among "
++                f"the loaded consumers"
++            )
++        if bool(stuck_valve.label.mask[0]):
++            raise ValueError(
++                "stuck valve active at t=0 unsupported: "
++                "a pre-fault actuator state is required"
++            )
++
+     if sorted(ua) != sorted(loads):
+         raise ValueError("ua must cover exactly the loaded consumers")
+     loads_t = _broadcast_loads(loads, n_steps)
+@@ -419,7 +444,9 @@ def run_eps_ntu_scenario(
+             return_temp=arrive + (q_now / (m_now * cp) if m_now > 0 else 0.0),
+             desired_mass_flow=control.primary_mass_flow,
+             delivered_load=q_now,
+-            unmet=control.unmet,
++            unmet=bool(
++                q_now < q_step[j] * (1.0 - 1e-6)
++            ),
+         )
+ 
+     # warm start at the first step's fixed-dT design equivalent — also the
+@@ -436,13 +463,38 @@ def run_eps_ntu_scenario(
+     e_start = stored_energy(tstate, cfg)
+     rec = _Recorder(dcn, sorted(tstate.pipes), n_steps)
+     flow_rec = np.zeros((n_steps, len(rec.consumers)))
++    desired_flow_rec = np.zeros((n_steps, len(rec.consumers)))
+     plant_flow = np.empty(n_steps)
+     make_up_flow = np.empty(n_steps)
+     leak_flow = np.zeros(n_steps)
+     converged = np.zeros(n_steps, dtype=bool)
+     iterations = np.zeros(n_steps, dtype=int)
++
++    # Stuck-valve state.
++    #
++    # ``flows`` is the FCV setting actually supplied to the hydraulic
++    # solver.  At fault onset we freeze the affected consumer at the
++    # last pre-fault applied setting.  The healthy ETS controller still
++    # computes ``desired`` normally, so command-actuation mismatch is a
++    # physical fault signature rather than a post-processed perturbation.
++    stuck_flow: float | None = None
++
+     for k in range(n_steps):
+         q_step, f_step = step_fault_state(k)
++
++        stuck_active = (
++            stuck_valve is not None
++            and bool(stuck_valve.label.mask[k])
++        )
++
++        # Normally the frozen value is captured at the end of the
++        # preceding healthy timestep.  This guard protects against an
++        # unexpected transition path without inventing a new value.
++        if stuck_active and stuck_flow is None:
++            stuck_flow = float(flows[stuck_valve.consumer])
++
++        if stuck_active:
++            flows[stuck_valve.consumer] = stuck_flow
+         leak_areas = (
+             {leak.node: leak.area}
+             if leak is not None and bool(leak.label.mask[k])
+@@ -465,15 +517,48 @@ def run_eps_ntu_scenario(
+                 dcn, trial, hyd.flow, float(setpoints[k]), ets_model, cfg
+             )
+             desired = {j: step.ets[j].desired_mass_flow / rho for j in loads}
+-            rel = max(
+-                abs(desired[j] - flows[j]) / max(flows[j], 1e-12) for j in loads
++
++            # Healthy controller requirement remains in ``desired``.
++            # Poor balancing changes the target followed by the actual
++            # ETS flow-control actuator, not the controller calculation.
++            applied_target = dict(desired)
++
++            balancing_active = (
++                poor_balancing is not None
++                and bool(poor_balancing.label.mask[k])
+             )
++
++            if balancing_active:
++                j_bal = poor_balancing.consumer
++                applied_target[j_bal] = (
++                    poor_balancing.flow_multiplier * desired[j_bal]
++                )
++
++            rel_terms = [
++                abs(applied_target[j] - flows[j]) / max(abs(flows[j]), 1e-12)
++                for j in loads
++                if not (
++                    stuck_active
++                    and stuck_valve is not None
++                    and j == stuck_valve.consumer
++                )
++            ]
++            rel = max(rel_terms, default=0.0)
+             if rel <= cfg.solver.flow_tol_rel:
+                 converged[k] = True
+                 break
+             if it < max_iters:  # keep records consistent with the last solve
+                 flows = {
+-                    j: flows[j] + cfg.solver.relaxation * (desired[j] - flows[j])
++                    j: (
++                        stuck_flow
++                        if (
++                            stuck_active
++                            and stuck_valve is not None
++                            and j == stuck_valve.consumer
++                        )
++                        else flows[j]
++                        + cfg.solver.relaxation * (applied_target[j] - flows[j])
++                    )
+                     for j in loads
+                 }
+         iterations[k] = it
+@@ -487,23 +572,51 @@ def run_eps_ntu_scenario(
+             leak_flow[k] = hyd.leak_flow[leak.node]
+         for col, j in enumerate(rec.consumers):
+             flow_rec[k, col] = flows[j]
++            desired_flow_rec[k, col] = desired[j]
+         if not converged[k]:
+             # valve controllers keep acting between timesteps: warm-start
+             # the next step one relaxation move closer to the last desired
+             # flows (records above stay consistent with what was solved)
+             flows = {
+-                j: flows[j] + cfg.solver.relaxation * (desired[j] - flows[j])
++                j: flows[j] + cfg.solver.relaxation * (applied_target[j] - flows[j])
+                 for j in loads
+             }
+         if k + 1 < n_steps:
++            # If the fault begins on the NEXT timestep, capture the current
++            # solved/applied FCV setting before healthy load feed-forward
++            # can alter it.  This is F(t_f^-).
++            next_stuck_active = (
++                stuck_valve is not None
++                and bool(stuck_valve.label.mask[k + 1])
++            )
++
++            if (
++                stuck_valve is not None
++                and not stuck_active
++                and next_stuck_active
++                and stuck_flow is None
++            ):
++                stuck_flow = float(flows[stuck_valve.consumer])
++
+             # valve feed-forward: desired flow is proportional to load at
+             # the realized dT (hinge equation), so pre-scale the warm start
+             # by the load ratio; exactly 1.0 when loads are constant
+             flows = {
+                 j: (
+-                    flows[j] * (float(loads_t[j][k + 1]) / q_step[j])
+-                    if q_step[j] > 0.0
+-                    else fixed_dt_primary_flow(float(loads_t[j][k + 1]), cfg)
++                    stuck_flow
++                    if (
++                        next_stuck_active
++                        and stuck_valve is not None
++                        and j == stuck_valve.consumer
++                        and stuck_flow is not None
++                    )
++                    else (
++                        flows[j] * (float(loads_t[j][k + 1]) / q_step[j])
++                        if q_step[j] > 0.0
++                        else fixed_dt_primary_flow(
++                            float(loads_t[j][k + 1]), cfg
++                        )
++                    )
+                 )
+                 for j in loads
+             }
+@@ -514,6 +627,7 @@ def run_eps_ntu_scenario(
+         return_temp=pd.DataFrame(rec.ret, columns=rec.junctions),
+         ets_return=pd.DataFrame(rec.ets_return, columns=rec.consumers),
+         consumer_flow=pd.DataFrame(flow_rec, columns=rec.consumers),
++        desired_flow=pd.DataFrame(desired_flow_rec, columns=rec.consumers),
+         delivered_load=pd.DataFrame(rec.delivered, columns=rec.consumers),
+         unmet=pd.DataFrame(rec.unmet, columns=rec.consumers),
+         **rec.hydraulic_frames(),
