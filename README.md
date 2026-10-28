@@ -6,6 +6,21 @@ and on a Linux CPU server.
 
 ![Workflow](docs/images/workflow.png)
 
+## Terms and abbreviations
+
+| Term | Meaning |
+|---|---|
+| **DCN** | district cooling network |
+| **ETS** | energy transfer station: the unit at each consumer that couples it to the network (here an FCV and an HX) |
+| **FCV** | flow control valve: sets the primary chilled-water flow through an ETS |
+| **HX** | heat exchanger: transfers heat from the building loop to the network and so sets the return temperature |
+| **UA** | overall heat-transfer conductance of an HX [W/K]; fouling lowers it |
+| **FSED** | fault and system efficiency degradation: one of the five cases studied (poor balancing, excessive control margin, clogged filter, HX fouling, hydronic valve fault) |
+| **SWiM** | the research project that prioritised these five FSEDs |
+| **DiTEC-WDN** | the water-distribution-network dataset used as the network and demand input |
+| **pair** | a healthy twin and a faulted twin simulated with identical loads, seed and network |
+| **RQ1-RQ3** | the thesis research questions (below) |
+
 ## The network
 
 dcngen turns a water-distribution network (DiTEC-WDN, here `hanoi_8GB_1Y`: 31 junctions, 34 pipes, one source)

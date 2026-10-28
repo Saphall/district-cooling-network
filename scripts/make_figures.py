@@ -83,7 +83,7 @@ def schematic() -> Path:
 
     ax.text(5.5, 0.35,
             "Every DiTEC junction j is mirrored into j_s (supply) and j_r (return); each pipe p becomes p_s and p_r.\n"
-            "An ideal flow-control valve (FCV) carries each consumer's primary flow; a heat exchanger (HX) sets the return temperature.\n"
+            "ETS = energy transfer station (one per consumer)   FCV = flow control valve (sets the primary flow)   HX = heat exchanger (sets the return temperature)\n"
             "* the filter exists only in the clogged-filter experiment (a short minor-loss link ahead of the FCV).",
             ha="center", fontsize=8.5, color=GREY)
     path = OUT / "dcn_schematic.png"
@@ -97,7 +97,7 @@ def fault_points() -> Path:
     ax.set_xlim(0, 11.2)
     ax.set_ylim(0, 5.2)
     ax.axis("off")
-    ax.set_title("Where each FSED is injected", fontsize=13)
+    ax.set_title("Where each FSED (fault / system efficiency degradation) is injected", fontsize=13)
 
     ys, yr, x = 4.3, 0.8, 2.2
     ax.plot([0.4, 3.8], [ys, ys], color=SUPPLY, lw=4)
