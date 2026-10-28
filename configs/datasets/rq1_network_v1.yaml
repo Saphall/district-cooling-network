@@ -1,0 +1,35 @@
+# RQ1 dataset: network-wide observations (every consumer and pipe) for topology-aware models.
+# Same fault grid and rules as pilot_v1 (append levels at the end, raise n_seeds to extend);
+# only the export format and the number of seeds differ. Seeds/levels are a starting point.
+dataset_id: rq1_network_v1
+description: Pilot FSED grid with network-wide export for RQ1 (topology vs topology-agnostic).
+
+export: network           # {healthy,fault}_{consumers,pipes}.parquet per pair
+targets: auto             # one auto-selected target ETS per seed; list consumer ids for more locations
+
+n_steps: 48
+n_seeds: 10
+healthy_ua_factor: 1.05
+pump_curve: plant_pump_curve
+
+filter:
+  k_clean: 1.0
+  length_m: 0.01
+  u_prime: 1.0e-6
+
+fsed:
+  stuck_actuator:
+    severity_parameter: onset_fraction
+    levels: [0.25, 0.50, 0.75]
+  poor_balancing:
+    severity_parameter: flow_multiplier
+    levels: [0.90, 0.80, 0.70]
+  excess_control_margin:
+    severity_parameter: head_multiplier
+    levels: [1.10, 1.20, 1.30]
+  clogged_filter:
+    severity_parameter: filter_K
+    levels: [5.0, 10.0, 20.0]
+  hx_fouling:
+    severity_parameter: ua_multiplier
+    levels: [0.85, 0.70, 0.50]
