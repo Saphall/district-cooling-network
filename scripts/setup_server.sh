@@ -8,9 +8,9 @@ export SWIM_WORKSPACE="${1:-${SWIM_WORKSPACE:-$PWD}}"
 mkdir -p "$SWIM_WORKSPACE"
 
 command -v uv >/dev/null || { echo "install uv first: https://docs.astral.sh/uv/"; exit 1; }
-uv sync --all-extras
+uv sync
 
-uv run --all-extras dcn setup-dcngen
-uv run --all-extras dcn download-data
-uv run --all-extras dcn doctor
+uv run dcn setup-dcngen
+uv run dcn download-data
+uv run dcn doctor
 echo "workspace: $SWIM_WORKSPACE"
