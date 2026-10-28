@@ -1,7 +1,7 @@
 """Pristine dcngen -> derived (patched) dcngen build, and import bootstrap.
 
 The pinned upstream clone is only ever *read* (``git archive`` of the pinned
-commit). SWiM-specific changes live in ``patches/dcngen/*.patch`` and are applied
+commit). SWiM-specific changes live in ``configs/patches/*.patch`` and are applied
 to the derived copy ``external/dcngen_swim`` only.
 """
 
@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import io
 import json
+import os
 import shutil
 import subprocess
 import sys
@@ -112,6 +113,8 @@ def build_derived(ws: Workspace | None = None, force: bool = False) -> str:
     with tarfile.open(fileobj=io.BytesIO(archive)) as tar:
         tar.extractall(derived, filter="data")
 
+    # Inside an enclosing git repo, `git apply` silently skips paths outside the cwd.
+    env = {**os.environ, "GIT_CEILING_DIRECTORIES": str(derived.parent)}
     for patch in patches:
         subprocess.run(
             ["git", "apply", "--whitespace=nowarn", str(patch)],
@@ -119,7 +122,18 @@ def build_derived(ws: Workspace | None = None, force: bool = False) -> str:
             check=True,
             capture_output=True,
             text=True,
+            env=env,
         )
+        applied = subprocess.run(
+            ["git", "apply", "--reverse", "--check", str(patch)],
+            cwd=derived,
+            capture_output=True,
+            text=True,
+            env=env,
+        )
+        if applied.returncode != 0:
+            shutil.rmtree(derived)
+            raise DcngenSetupError(f"patch {patch.name} did not take effect: {applied.stderr.strip()}")
     write_json_atomic(derived / BUILD_MARKER, build_fingerprint(lock))
     return f"{notes}; built {derived} with {len(patches)} patch(es)"
 
@@ -155,7 +169,7 @@ def extract_patch(ws: Workspace, modified_dir: Path, name: str) -> tuple[Path, l
     digest = sha256_file(patch_path)
     ws.dcngen_lock.write_text(
         "# Pinned upstream dcngen. The upstream clone is never modified; the project\n"
-        "# builds a derived copy (external/dcngen_swim) = pristine commit + patches/dcngen/*.patch.\n"
+        "# builds a derived copy (external/dcngen_swim) = pristine commit + configs/patches/*.patch.\n"
         + yaml.safe_dump(
             {
                 "repo": lock.repo,

@@ -99,29 +99,24 @@ Every step can be repeated safely; finished work is skipped.
 
 ```
 district-cooling-network/
-├── README.md
-├──pyproject.toml
-├──uv.lock
-├── configs/                  dcngen.lock.yaml (pinned commit + patch hash), dcngen_default.yaml,
-│                             inputs.yaml, datasets/<name>.yaml
+├── configs/            dcngen_default.yaml, dcngen.lock.yaml, inputs.yaml, datasets/, patches/
 ├── src/district_cooling_network/
-│   ├── pipeline/             simulation: network and seed context, the five FSED pair runners, exporters
-│   ├── validation/           five physics checks, summary table, figures
-│   ├── dataset/              resumable generation and consolidation
-│   ├── ml/                   leakage-safe features, group splits, run tracking
-│   ├── manifest.py           dataset grid, per-pair status, protected-output registry
-│   ├── paths.py, config.py   workspace and config resolution (no hardcoded paths)
-│   ├── dcngen_env.py         pinned clone -> patched copy, import bootstrap
-│   └── cli.py                the `dcn` command
-├── rq1_experiments/          RQ1 scripts (add rq2_experiments/ ... as they start)
-├── notebooks/                Colab notebooks 00_setup ... 03_ml_experiments (thin, call the CLI)
-├── scripts/                  setup_server.sh, run_generation.sh, make_figures.py
-├── patches/                  SWiM extensions to dcngen as a patch, with provenance notes
-├── docs/                     five_fsed_spec.md, images/, progress report and thesis PDFs
-├── data/                     network inputs (untracked)
-├── tests/                    pytest, needs neither dcngen nor data
-└── archive/                  original notebook, old scripts, loose dcngen copies (unused; see its README)
+│   ├── pipeline/       simulation: the five FSED pair runners and exporters
+│   ├── validation/     five physics checks, summary, figures
+│   ├── dataset/        resumable generation and consolidation
+│   ├── ml/             features, group splits, run tracking
+│   └── cli.py, manifest.py, paths.py, config.py, dcngen_env.py
+├── rq1_experiments/    RQ1 scripts (add rq2_experiments/ ... as they start)
+├── notebooks/          Colab notebooks 00_setup ... 03_ml_experiments
+├── scripts/            setup_server.sh, run_generation.sh, make_figures.py
+├── tests/              pytest; needs neither dcngen nor data
+├── docs/               five_fsed_spec.md, images/, PDFs, archive/ (old notebook and scripts, unused)
+├── pyproject.toml      project metadata, dependencies, `dcn` command, pytest and ruff settings
+├── uv.lock             exact dependency versions (commit it; `uv sync` reproduces the environment)
+├── README.md           this guide
 ```
+
+Seven folders, like dcngen itself. `configs/patches/` holds the SWiM changes to dcngen as a patch (see its README).
 
 Generated content goes to the **workspace** (`SWIM_WORKSPACE`; default: this folder; on Colab
 `/content/drive/MyDrive/DCN_Thesis`), all untracked:

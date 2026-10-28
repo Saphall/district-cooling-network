@@ -1,5 +1,5 @@
 # Pinned upstream dcngen. The upstream clone is never modified; the project
-# builds a derived copy (external/dcngen_swim) = pristine commit + patches/dcngen/*.patch.
+# builds a derived copy (external/dcngen_swim) = pristine commit + configs/patches/*.patch.
 repo: https://github.com/asgersong/dcngen.git
 commit: 2641335e6a95047097e5e8b644316f7e3503a4a9
 patches:

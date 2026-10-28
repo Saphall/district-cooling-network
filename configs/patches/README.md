@@ -10,7 +10,7 @@ in `faults/injector.py`, and in `orchestrate/scenario.py` the `stuck_valve` / `p
 
 The edits were made in place on the Drive copy of dcngen from the Colab notebook. This patch was
 **reconstructed** by replaying those notebook cells on the pinned commit, then compared with the working
-copy `archive/dcngen/scenario.py`. That file differs from the patched result only by two
+copy `docs/archive/dcngen/scenario.py`. That file differs from the patched result only by two
 latent defects of the in-place edits, which are intentionally **not** reproduced:
 
 - `run_fixed_dt_scenario` also got a `desired_flow=` line referring to an undefined name (the fixed-dt runner

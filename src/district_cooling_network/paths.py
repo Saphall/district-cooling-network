@@ -10,7 +10,7 @@ Workspace layout::
     <workspace>/
       data/ditec-wdn/<network>/*.parquet   raw inputs (read-only)
       external/dcngen/                     pristine, pinned upstream repo (read-only)
-      external/dcngen_swim/                derived build: pristine + patches/
+      external/dcngen_swim/                derived build: pristine + configs/patches/
       configs/resolved/dcngen.yaml         rendered config (machine paths filled in)
       datasets/<dataset_id>/               manifest, per-pair outputs, consolidated exports
       datasets/_legacy/registry.csv        integrity registry of pre-existing outputs
@@ -97,7 +97,7 @@ class Workspace:
 
     @property
     def patches_dir(self) -> Path:
-        return self.project_root / "patches"
+        return self.configs_dir / "patches"
 
     @property
     def dcngen_lock(self) -> Path:

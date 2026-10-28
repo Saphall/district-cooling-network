@@ -23,8 +23,8 @@ wheels/
 
 # Workspace content: code and configs are tracked, bulky or generated data is not.
 # (On Colab the workspace is on Google Drive, outside this checkout.)
-/data/*
-!/data/.gitkeep
+/data/
+/reports/
 /external/
 /datasets/
 /results/

@@ -34,8 +34,8 @@ def fake_project(tmp_path, monkeypatch):
     project = tmp_path / "project"
     (project / "configs").mkdir(parents=True)
     (project / "pyproject.toml").write_text("[project]\nname='x'\n")
-    (project / "patches").mkdir(parents=True)
-    (project / "patches" / "0001.patch").write_text(patch)
+    (project / "configs" / "patches").mkdir(parents=True)
+    (project / "configs" / "patches" / "0001.patch").write_text(patch)
     (project / "configs" / "dcngen.lock.yaml").write_text(
         yaml.safe_dump(
             {
@@ -68,6 +68,15 @@ def test_derived_build_patches_copy_and_leaves_pristine_untouched(fake_project):
     assert git("status", "--porcelain", cwd=fake_project) == ""
 
     assert "up to date" in dcngen_env.build_derived(ws)  # idempotent
+
+
+def test_patch_applies_when_workspace_is_inside_a_git_repo(fake_project):
+    ws = get_workspace()
+    ws.root.mkdir(parents=True)
+    git("init", "-q", cwd=ws.root)
+
+    dcngen_env.build_derived(ws)
+    assert (ws.dcngen_derived / "src" / "dcngen" / "__init__.py").read_text() == "VALUE = 2\n"
 
 
 def test_local_edits_in_existing_clone_are_ignored_not_reverted(fake_project):

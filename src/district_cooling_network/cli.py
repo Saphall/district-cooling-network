@@ -151,8 +151,20 @@ def _generate_parallel(args) -> int:
     return int(any(codes))
 
 
+def _inputs_ready() -> bool:
+    from district_cooling_network.data import missing_inputs
+
+    missing = missing_inputs()
+    if missing:
+        print(f"{len(missing)} input file(s) missing; run `dcn download-data` first", file=sys.stderr)
+    return not missing
+
+
 def cmd_generate(args) -> int:
     from district_cooling_network.dataset.generate import generate
+
+    if not args.dry_run and not _inputs_ready():
+        return 1
 
     if args.workers > 1:
         return _generate_parallel(args)
@@ -182,6 +194,8 @@ def cmd_consolidate(args) -> int:
 def cmd_validate(args) -> int:
     from district_cooling_network.validation.runner import ALL_NAMES, run_validation
 
+    if not _inputs_ready():
+        return 1
     names = args.names or ALL_NAMES
     worst = 0
     for name in names:
