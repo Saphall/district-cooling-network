@@ -99,7 +99,9 @@ Every step can be repeated safely; finished work is skipped.
 
 ```
 district-cooling-network/
-├── README.md, pyproject.toml, uv.lock
+├── README.md
+├──pyproject.toml
+├──uv.lock
 ├── configs/                  dcngen.lock.yaml (pinned commit + patch hash), dcngen_default.yaml,
 │                             inputs.yaml, datasets/<name>.yaml
 ├── src/district_cooling_network/
